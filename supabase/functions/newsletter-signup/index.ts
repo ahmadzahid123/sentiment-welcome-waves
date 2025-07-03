@@ -54,7 +54,7 @@ async function analyzeSentiment(text: string): Promise<{ sentiment: string; scor
     const tags = extractTags(text);
 
     return {
-      sentiment: topSentiment.label.toLowerCase(),
+      sentiment: topSentiment.label,
       score: Math.round(topSentiment.score * 100) / 100,
       tags
     };
@@ -99,7 +99,8 @@ function generatePersonalizedEmail(name: string, sentiment: string, reason: stri
     neutral: "Thank you for joining our AI-powered newsletter community."
   };
 
-  const sentiment_key = sentiment === 'label_1' ? 'negative' : sentiment === 'label_2' ? 'positive' : 'neutral';
+  // Cardiff model returns: LABEL_0=negative, LABEL_1=neutral, LABEL_2=positive
+  const sentiment_key = sentiment === 'LABEL_0' ? 'negative' : sentiment === 'LABEL_2' ? 'positive' : 'neutral';
 
   return {
     subject: subjects[sentiment_key] || subjects.neutral,
