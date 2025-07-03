@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Sparkles, Brain, Mail } from "lucide-react";
 import { SuccessModal } from "./SuccessModal";
+import { supabase } from "@/integrations/supabase/client";
 
 export const NewsletterForm = () => {
   const [formData, setFormData] = useState({
@@ -39,12 +40,25 @@ export const NewsletterForm = () => {
     e.preventDefault();
     setIsSubmitting(true);
     
-    // Simulate API call for now
-    setTimeout(() => {
-      setIsSubmitting(false);
+    try {
+      const { data, error } = await supabase.functions.invoke('newsletter-signup', {
+        body: formData
+      });
+
+      if (error) {
+        console.error('Subscription error:', error);
+        throw error;
+      }
+
+      console.log('Subscription successful:', data);
       setShowSuccess(true);
       setFormData({ name: "", email: "", reason: "" });
-    }, 2000);
+    } catch (error) {
+      console.error('Failed to submit subscription:', error);
+      // Could add error toast here
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
