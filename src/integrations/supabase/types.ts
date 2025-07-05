@@ -9,6 +9,110 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      chat_sessions: {
+        Row: {
+          created_at: string
+          id: string
+          title: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          title?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          title?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      islamic_knowledge: {
+        Row: {
+          arabic_text: string | null
+          category: string | null
+          content: string
+          created_at: string
+          id: string
+          reference: string | null
+          tags: string[] | null
+          title: string
+          translation: string | null
+          type: string
+          verified: boolean | null
+        }
+        Insert: {
+          arabic_text?: string | null
+          category?: string | null
+          content: string
+          created_at?: string
+          id?: string
+          reference?: string | null
+          tags?: string[] | null
+          title: string
+          translation?: string | null
+          type: string
+          verified?: boolean | null
+        }
+        Update: {
+          arabic_text?: string | null
+          category?: string | null
+          content?: string
+          created_at?: string
+          id?: string
+          reference?: string | null
+          tags?: string[] | null
+          title?: string
+          translation?: string | null
+          type?: string
+          verified?: boolean | null
+        }
+        Relationships: []
+      }
+      messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          metadata: Json | null
+          role: string
+          session_id: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          role: string
+          session_id: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          role?: string
+          session_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "chat_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       newsletter_subscriptions: {
         Row: {
           created_at: string
@@ -41,6 +145,42 @@ export type Database = {
           sentiment?: string | null
           sentiment_score?: number | null
           tags?: string[] | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          full_name: string | null
+          id: string
+          location_latitude: number | null
+          location_longitude: number | null
+          prayer_notifications: boolean | null
+          preferred_language: string | null
+          timezone: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          full_name?: string | null
+          id: string
+          location_latitude?: number | null
+          location_longitude?: number | null
+          prayer_notifications?: boolean | null
+          preferred_language?: string | null
+          timezone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          full_name?: string | null
+          id?: string
+          location_latitude?: number | null
+          location_longitude?: number | null
+          prayer_notifications?: boolean | null
+          preferred_language?: string | null
+          timezone?: string | null
           updated_at?: string
         }
         Relationships: []
