@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
-import { HfInference } from 'https://esm.sh/@huggingface/inference@2.3.2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -15,8 +14,11 @@ serve(async (req) => {
   try {
     const { message, session_id } = await req.json();
 
-    // Initialize Hugging Face client
-    const hf = new HfInference(Deno.env.get('HUGGINGFACE_API_KEY'));
+    // Get Groq API key
+    const groqApiKey = Deno.env.get('GROQ_API_KEY');
+    if (!groqApiKey) {
+      throw new Error('GROQ_API_KEY not configured');
+    }
 
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -31,34 +33,39 @@ serve(async (req) => {
 4. Use Islamic phrases naturally (In sha Allah, Masha Allah, Subhanallah, etc.)
 5. Provide accurate Islamic guidance based on Quran and Sunnah
 6. If uncertain about religious matters, advise consulting a qualified Islamic scholar
-7. Be helpful for both religious and general questions while maintaining Islamic ethoz
+7. Be helpful for both religious and general questions while maintaining Islamic ethos
 
 Remember: Always prioritize authentic Islamic sources and avoid speculation on religious matters.`;
 
-    // Format the conversation for the AI model
-    const prompt = `<s>[INST] ${systemPrompt}
+    console.log('Calling Groq API with message:', message);
 
-User: ${message} [/INST]`;
-
-    console.log('Calling AI model with prompt length:', prompt.length);
-
-    // Call Mistral AI model
-    const aiResponse = await hf.textGeneration({
-      model: 'mistralai/Mistral-7B-Instruct-v0.2',
-      inputs: prompt,
-      parameters: {
-        max_new_tokens: 500,
+    // Call Groq API
+    const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${groqApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'llama3-70b-8192',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: message }
+        ],
+        max_tokens: 1000,
         temperature: 0.7,
         top_p: 0.9,
-        repetition_penalty: 1.1,
-        return_full_text: false,
-      }
+      }),
     });
 
-    let response = aiResponse.generated_text?.trim() || 'I apologize, but I could not generate a response. Please try again.';
-    
-    // Clean up response by removing any system prompt leakage
-    response = response.replace(/\[INST\]|\[\/INST\]|<s>|<\/s>/g, '').trim();
+    if (!groqResponse.ok) {
+      const errorText = await groqResponse.text();
+      console.error('Groq API error:', errorText);
+      throw new Error(`Groq API error: ${groqResponse.status}`);
+    }
+
+    const groqData = await groqResponse.json();
+    let response = groqData.choices[0]?.message?.content?.trim() || 'I apologize, but I could not generate a response. Please try again.';
     
     console.log('AI Response generated successfully, length:', response.length);
 
