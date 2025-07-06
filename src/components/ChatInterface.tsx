@@ -16,48 +16,56 @@ interface Message {
   timestamp: Date;
 }
 
-const ChatInterface = () => {
+interface ChatInterfaceProps {
+  currentSessionId: string | null;
+  onSessionIdChange: (sessionId: string) => void;
+}
+
+const ChatInterface = ({ currentSessionId, onSessionIdChange }: ChatInterfaceProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      role: 'assistant',
-      content: 'السلام عليكم ورحمة الله وبركاته! Welcome to your Islamic AI Assistant. How can I help you today with Islamic knowledge, prayers, or spiritual guidance?',
-      timestamp: new Date(),
-    }
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
-  // Create a new chat session on component mount
+  // Load messages when session changes
   useEffect(() => {
-    const createSession = async () => {
-      if (!user) return;
-      
-      const { data, error } = await supabase
-        .from('chat_sessions')
-        .insert([
-          {
-            user_id: user.id,
-            title: 'New Islamic Chat',
-          }
-        ])
-        .select()
-        .single();
-
-      if (error) {
-        console.error('Error creating session:', error);
+    const loadMessages = async () => {
+      if (!currentSessionId) {
+        setMessages([]);
         return;
       }
 
-      setCurrentSessionId(data.id);
+      try {
+        const { data, error } = await supabase
+          .from('messages')
+          .select('*')
+          .eq('session_id', currentSessionId)
+          .order('created_at', { ascending: true });
+
+        if (error) throw error;
+
+        const formattedMessages: Message[] = data.map(msg => ({
+          id: msg.id,
+          role: msg.role as 'user' | 'assistant',
+          content: msg.content,
+          timestamp: new Date(msg.created_at),
+        }));
+
+        setMessages(formattedMessages);
+      } catch (error: any) {
+        console.error('Error loading messages:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load messages",
+          variant: "destructive",
+        });
+      }
     };
 
-    createSession();
-  }, [user]);
+    loadMessages();
+  }, [currentSessionId, toast]);
 
   // Scroll to bottom when new messages are added
   useEffect(() => {
@@ -93,6 +101,18 @@ const ChatInterface = () => {
             role: 'user',
           }
         ]);
+
+      // Update session title based on first user message
+      if (messages.length === 0) {
+        const title = userMessage.content.length > 50 
+          ? userMessage.content.substring(0, 50) + '...'
+          : userMessage.content;
+          
+        await supabase
+          .from('chat_sessions')
+          .update({ title, updated_at: new Date().toISOString() })
+          .eq('id', currentSessionId);
+      }
 
       // Call AI function
       const { data, error } = await supabase.functions.invoke('islamic-ai-chat', {
@@ -164,24 +184,36 @@ const ChatInterface = () => {
       </div>
 
       {/* Messages */}
-      <ScrollArea ref={scrollAreaRef} className="flex-1 p-4">
-        <div className="container mx-auto max-w-4xl space-y-4">
+      <ScrollArea ref={scrollAreaRef} className="flex-1 p-2 md:p-4">
+        <div className="container mx-auto max-w-4xl space-y-3 md:space-y-4">
+          {messages.length === 0 && (
+            <div className="text-center py-8">
+              <div className="text-4xl mb-4">🌙</div>
+              <h2 className="text-xl font-semibold mb-2 text-gradient-primary">
+                السلام عليكم ورحمة الله وبركاته
+              </h2>
+              <p className="text-muted-foreground">
+                Welcome to your Islamic AI Assistant. How can I help you today with Islamic knowledge, prayers, or spiritual guidance?
+              </p>
+            </div>
+          )}
+          
           {messages.map((message) => (
             <div
               key={message.id}
-              className={`flex gap-3 ${
+              className={`flex gap-2 md:gap-3 ${
                 message.role === 'user' ? 'justify-end' : 'justify-start'
               }`}
             >
               {message.role === 'assistant' && (
-                <Avatar className="w-8 h-8 bg-primary/10">
+                <Avatar className="w-6 h-6 md:w-8 md:h-8 bg-primary/10 flex-shrink-0">
                   <AvatarFallback className="bg-transparent">
-                    <Bot className="w-4 h-4 text-primary" />
+                    <Bot className="w-3 h-3 md:w-4 md:h-4 text-primary" />
                   </AvatarFallback>
                 </Avatar>
               )}
               
-              <Card className={`max-w-[70%] p-4 ${
+              <Card className={`max-w-[85%] md:max-w-[70%] p-3 md:p-4 ${
                 message.role === 'user' 
                   ? 'bg-gradient-primary text-primary-foreground' 
                   : 'bg-card shadow-islamic'
@@ -199,9 +231,9 @@ const ChatInterface = () => {
               </Card>
 
               {message.role === 'user' && (
-                <Avatar className="w-8 h-8 bg-secondary/10">
+                <Avatar className="w-6 h-6 md:w-8 md:h-8 bg-secondary/10 flex-shrink-0">
                   <AvatarFallback className="bg-transparent">
-                    <User className="w-4 h-4 text-secondary" />
+                    <User className="w-3 h-3 md:w-4 md:h-4 text-secondary" />
                   </AvatarFallback>
                 </Avatar>
               )}
@@ -209,13 +241,13 @@ const ChatInterface = () => {
           ))}
           
           {isLoading && (
-            <div className="flex gap-3 justify-start">
-              <Avatar className="w-8 h-8 bg-primary/10">
+            <div className="flex gap-2 md:gap-3 justify-start">
+              <Avatar className="w-6 h-6 md:w-8 md:h-8 bg-primary/10">
                 <AvatarFallback className="bg-transparent">
-                  <Bot className="w-4 h-4 text-primary" />
+                  <Bot className="w-3 h-3 md:w-4 md:h-4 text-primary" />
                 </AvatarFallback>
               </Avatar>
-              <Card className="p-4 bg-card shadow-islamic">
+              <Card className="p-3 md:p-4 bg-card shadow-islamic">
                 <div className="flex items-center gap-2">
                   <Loader2 className="w-4 h-4 animate-spin text-primary" />
                   <p className="text-sm text-muted-foreground">Thinking...</p>
@@ -227,21 +259,21 @@ const ChatInterface = () => {
       </ScrollArea>
 
       {/* Input */}
-      <div className="border-t bg-card/50 backdrop-blur-sm p-4">
+      <div className="border-t bg-card/50 backdrop-blur-sm p-2 md:p-4">
         <div className="container mx-auto max-w-4xl">
           <div className="flex gap-2">
             <Input
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder="Ask about Islamic teachings, Quran verses, Hadith, or spiritual guidance..."
-              className="flex-1 bg-background"
+              placeholder="Ask about Islamic teachings, Quran verses, Hadith..."
+              className="flex-1 bg-background text-sm md:text-base"
               disabled={isLoading}
             />
             <Button
               onClick={handleSend}
               disabled={!input.trim() || isLoading}
-              className="bg-gradient-primary hover:opacity-90"
+              className="bg-gradient-primary hover:opacity-90 px-3 md:px-4"
             >
               <Send className="w-4 h-4" />
             </Button>

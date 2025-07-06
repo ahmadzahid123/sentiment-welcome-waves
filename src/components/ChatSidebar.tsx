@@ -1,0 +1,197 @@
+import { useState, useEffect } from 'react';
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuItem,
+  SidebarMenuButton,
+  SidebarTrigger,
+  SidebarFooter,
+} from '@/components/ui/sidebar';
+import { Button } from '@/components/ui/button';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { MessageSquare, Plus, LogOut, User, Trash2 } from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
+
+interface ChatSession {
+  id: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface ChatSidebarProps {
+  currentSessionId: string | null;
+  onSessionSelect: (sessionId: string) => void;
+  onNewChat: () => void;
+}
+
+const ChatSidebar = ({ currentSessionId, onSessionSelect, onNewChat }: ChatSidebarProps) => {
+  const { user, signOut } = useAuth();
+  const { toast } = useToast();
+  const [sessions, setSessions] = useState<ChatSession[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Load user's chat sessions
+  useEffect(() => {
+    const loadSessions = async () => {
+      if (!user) return;
+
+      try {
+        const { data, error } = await supabase
+          .from('chat_sessions')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('updated_at', { ascending: false });
+
+        if (error) throw error;
+        setSessions(data || []);
+      } catch (error: any) {
+        console.error('Error loading sessions:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load chat sessions",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadSessions();
+  }, [user, toast]);
+
+  const handleDeleteSession = async (sessionId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    
+    try {
+      // Delete messages first
+      await supabase
+        .from('messages')
+        .delete()
+        .eq('session_id', sessionId);
+
+      // Delete session
+      const { error } = await supabase
+        .from('chat_sessions')
+        .delete()
+        .eq('id', sessionId);
+
+      if (error) throw error;
+
+      setSessions(prev => prev.filter(s => s.id !== sessionId));
+      
+      // If deleting current session, start new chat
+      if (sessionId === currentSessionId) {
+        onNewChat();
+      }
+
+      toast({
+        title: "Session deleted",
+        description: "Chat session has been deleted successfully",
+      });
+    } catch (error: any) {
+      console.error('Error deleting session:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete session",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const truncateTitle = (title: string, maxLength: number = 40) => {
+    return title.length > maxLength ? title.substring(0, maxLength) + '...' : title;
+  };
+
+  return (
+    <Sidebar className="w-80 border-r bg-card/50 backdrop-blur-sm">
+      <SidebarHeader className="p-4 border-b">
+        <div className="flex items-center gap-2 mb-4">
+          <MessageSquare className="w-6 h-6 text-primary" />
+          <h2 className="font-bold text-lg text-gradient-primary">Islamic AI</h2>
+        </div>
+        
+        <Button 
+          onClick={onNewChat}
+          className="w-full bg-gradient-primary hover:opacity-90"
+        >
+          <Plus className="w-4 h-4 mr-2" />
+          New Chat
+        </Button>
+      </SidebarHeader>
+
+      <SidebarContent className="flex-1">
+        <ScrollArea className="h-full px-4 py-2">
+          <SidebarMenu>
+            {loading ? (
+              <div className="text-center py-8 text-muted-foreground">
+                Loading sessions...
+              </div>
+            ) : sessions.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground text-sm">
+                No chat sessions yet.<br />Start a new conversation!
+              </div>
+            ) : (
+              sessions.map((session) => (
+                <SidebarMenuItem key={session.id}>
+                  <SidebarMenuButton
+                    onClick={() => onSessionSelect(session.id)}
+                    className={`w-full text-left p-3 rounded-lg transition-colors group relative ${
+                      currentSessionId === session.id 
+                        ? 'bg-primary/10 text-primary border border-primary/20' 
+                        : 'hover:bg-muted/80'
+                    }`}
+                  >
+                    <div className="flex-1 min-w-0 pr-8">
+                      <div className="font-medium text-sm mb-1">
+                        {truncateTitle(session.title || 'New Chat')}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {formatDistanceToNow(new Date(session.updated_at), { addSuffix: true })}
+                      </div>
+                    </div>
+                    
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity p-1 h-6 w-6"
+                      onClick={(e) => handleDeleteSession(session.id, e)}
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </Button>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))
+            )}
+          </SidebarMenu>
+        </ScrollArea>
+      </SidebarContent>
+
+      <SidebarFooter className="p-4 border-t">
+        <div className="flex items-center gap-2 mb-2">
+          <User className="w-4 h-4 text-primary" />
+          <span className="text-sm font-medium">
+            {user?.email?.split('@')[0] || 'User'}
+          </span>
+        </div>
+        
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          onClick={signOut}
+          className="w-full justify-start text-muted-foreground hover:text-foreground"
+        >
+          <LogOut className="w-4 h-4 mr-2" />
+          Sign Out
+        </Button>
+      </SidebarFooter>
+    </Sidebar>
+  );
+};
+
+export default ChatSidebar;

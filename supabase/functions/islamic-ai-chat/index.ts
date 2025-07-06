@@ -25,11 +25,19 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // Check if this is the first message in the session
+    const { data: messageCount } = await supabase
+      .from('messages')
+      .select('id', { count: 'exact', head: true })
+      .eq('session_id', session_id);
+
+    const isFirstMessage = !messageCount || messageCount === 0;
+
     // Create Islamic-focused system prompt
     const systemPrompt = `You are an Islamic AI assistant with deep knowledge of the Quran, Hadith, and Islamic teachings. Your responses should:
 1. Be respectful and aligned with Islamic values
 2. Cite relevant Quran verses or authentic Hadiths when applicable
-3. Begin responses with appropriate Islamic greetings (Assalamu Alaikum, Barakallahu feeki, etc.)
+3. ${isFirstMessage ? 'Begin with Islamic greeting (Assalamu Alaikum wa Rahmatullahi wa Barakatuh)' : 'Do NOT include greetings in your response unless specifically relevant'}
 4. Use Islamic phrases naturally (In sha Allah, Masha Allah, Subhanallah, etc.)
 5. Provide accurate Islamic guidance based on Quran and Sunnah
 6. If uncertain about religious matters, advise consulting a qualified Islamic scholar
