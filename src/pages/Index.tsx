@@ -14,63 +14,10 @@ const Index = () => {
   const { toast } = useToast();
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
 
-  // Create initial session when user loads
-  useEffect(() => {
-    const createInitialSession = async () => {
-      if (!user || currentSessionId) return;
-
-      try {
-        const { data, error } = await supabase
-          .from('chat_sessions')
-          .insert([
-            {
-              user_id: user.id,
-              title: 'New Islamic Chat',
-            }
-          ])
-          .select()
-          .single();
-
-        if (error) throw error;
-        setCurrentSessionId(data.id);
-      } catch (error: any) {
-        console.error('Error creating initial session:', error);
-        toast({
-          title: "Error",
-          description: "Failed to create chat session",
-          variant: "destructive",
-        });
-      }
-    };
-
-    createInitialSession();
-  }, [user, currentSessionId, toast]);
+  // No automatic session creation - sessions are created when user first chats
 
   const handleNewChat = async () => {
-    if (!user) return;
-
-    try {
-      const { data, error } = await supabase
-        .from('chat_sessions')
-        .insert([
-          {
-            user_id: user.id,
-            title: 'New Islamic Chat',
-          }
-        ])
-        .select()
-        .single();
-
-      if (error) throw error;
-      setCurrentSessionId(data.id);
-    } catch (error: any) {
-      console.error('Error creating new chat:', error);
-      toast({
-        title: "Error",
-        description: "Failed to create new chat",
-        variant: "destructive",
-      });
-    }
+    setCurrentSessionId(null); // Reset to null so next message creates new session
   };
 
   if (loading) {
@@ -98,18 +45,20 @@ const Index = () => {
           onNewChat={handleNewChat}
         />
         
-        <SidebarInset className="flex flex-col">
+        <SidebarInset className="flex flex-col flex-1">
           {/* Mobile header with sidebar trigger */}
-          <div className="md:hidden bg-card/90 backdrop-blur-sm border-b px-4 py-2 flex items-center gap-2">
+          <div className="md:hidden bg-card/90 backdrop-blur-sm border-b px-4 py-2 flex items-center gap-2 flex-shrink-0">
             <SidebarTrigger />
             <img src={islamicLogo} alt="Islamic AI" className="w-6 h-6" />
             <span className="font-bold text-gradient-primary">Islamic AI</span>
           </div>
           
-          <ChatInterface 
-            currentSessionId={currentSessionId}
-            onSessionIdChange={setCurrentSessionId}
-          />
+          <div className="flex-1 flex flex-col min-h-0">
+            <ChatInterface 
+              currentSessionId={currentSessionId}
+              onSessionIdChange={setCurrentSessionId}
+            />
+          </div>
         </SidebarInset>
         
         <PWAInstallPrompt />

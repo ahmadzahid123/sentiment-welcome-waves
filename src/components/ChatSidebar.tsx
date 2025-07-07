@@ -26,7 +26,7 @@ interface ChatSession {
 
 interface ChatSidebarProps {
   currentSessionId: string | null;
-  onSessionSelect: (sessionId: string) => void;
+  onSessionSelect: (sessionId: string | null) => void;
   onNewChat: () => void;
 }
 
@@ -36,7 +36,7 @@ const ChatSidebar = ({ currentSessionId, onSessionSelect, onNewChat }: ChatSideb
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Load user's chat sessions
+  // Load user's chat sessions and refresh when currentSessionId changes
   useEffect(() => {
     const loadSessions = async () => {
       if (!user) return;
@@ -63,7 +63,7 @@ const ChatSidebar = ({ currentSessionId, onSessionSelect, onNewChat }: ChatSideb
     };
 
     loadSessions();
-  }, [user, toast]);
+  }, [user, currentSessionId, toast]); // Added currentSessionId to dependencies
 
   const handleDeleteSession = async (sessionId: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -85,9 +85,9 @@ const ChatSidebar = ({ currentSessionId, onSessionSelect, onNewChat }: ChatSideb
 
       setSessions(prev => prev.filter(s => s.id !== sessionId));
       
-      // If deleting current session, start new chat
+      // If deleting current session, reset to null (will start fresh)
       if (sessionId === currentSessionId) {
-        onNewChat();
+        onSessionSelect(null);
       }
 
       toast({
