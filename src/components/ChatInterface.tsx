@@ -226,21 +226,21 @@ const ChatInterface = ({ currentSessionId, onSessionIdChange }: ChatInterfacePro
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full overflow-hidden">
       {/* Header */}
       <div className="border-b bg-card/50 backdrop-blur-sm p-3 md:p-4 flex-shrink-0">
-        <div className="container mx-auto">
+        <div className="container mx-auto max-w-4xl">
           <h1 className="text-lg md:text-2xl font-bold text-gradient-primary">Islamic AI Assistant</h1>
           <p className="text-xs md:text-sm text-muted-foreground">Ask me anything about Islam, Quran, Hadith, or Islamic guidance</p>
         </div>
       </div>
 
       {/* Messages */}
-      <ScrollArea ref={scrollAreaRef} className="flex-1 min-h-0 p-2 md:p-4">
-        <div className="container mx-auto max-w-4xl space-y-3 md:space-y-4 pb-2">
+      <ScrollArea ref={scrollAreaRef} className="flex-1 overflow-auto">
+        <div className="container mx-auto max-w-4xl space-y-3 md:space-y-4 p-3 md:p-4">
           {messages.length === 0 && (
-            <div className="text-center py-4 md:py-8">
-              <div className="text-3xl md:text-4xl mb-3 md:mb-4">🌙</div>
+            <div className="text-center py-8 md:py-12">
+              <div className="text-3xl md:text-4xl mb-4">🌙</div>
               <h2 className="text-lg md:text-xl font-semibold mb-2 text-gradient-primary">
                 السلام عليكم ورحمة الله وبركاته
               </h2>
@@ -307,6 +307,9 @@ const ChatInterface = ({ currentSessionId, onSessionIdChange }: ChatInterfacePro
               </Card>
             </div>
           )}
+
+          {/* Bottom padding for better scrolling */}
+          <div className="h-4"></div>
         </div>
       </ScrollArea>
 
@@ -319,13 +322,13 @@ const ChatInterface = ({ currentSessionId, onSessionIdChange }: ChatInterfacePro
               onChange={(e) => setInput(e.target.value)}
               onKeyPress={handleKeyPress}
               placeholder="Ask about Islamic teachings, Quran verses, Hadith..."
-              className="flex-1 bg-background text-sm md:text-base min-h-[40px]"
+              className="flex-1 bg-background text-sm md:text-base min-h-[44px] h-[44px]"
               disabled={isLoading}
             />
             <Button
               onClick={handleSend}
               disabled={!input.trim() || isLoading}
-              className="bg-gradient-primary hover:opacity-90 px-3 md:px-4 min-h-[40px]"
+              className="bg-gradient-primary hover:opacity-90 px-3 md:px-4 min-h-[44px] h-[44px] min-w-[44px]"
             >
               <Send className="w-4 h-4" />
             </Button>

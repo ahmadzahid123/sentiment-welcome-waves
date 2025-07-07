@@ -38,14 +38,14 @@ const Index = () => {
 
   return (
     <SidebarProvider>
-      <div className="min-h-screen flex w-full">
+      <div className="h-screen flex w-full overflow-hidden">
         <ChatSidebar 
           currentSessionId={currentSessionId}
           onSessionSelect={setCurrentSessionId}
           onNewChat={handleNewChat}
         />
         
-        <SidebarInset className="flex flex-col flex-1">
+        <SidebarInset className="flex flex-col flex-1 h-full">
           {/* Mobile header with sidebar trigger */}
           <div className="md:hidden bg-card/90 backdrop-blur-sm border-b px-4 py-2 flex items-center gap-2 flex-shrink-0">
             <SidebarTrigger />
@@ -53,7 +53,7 @@ const Index = () => {
             <span className="font-bold text-gradient-primary">Islamic AI</span>
           </div>
           
-          <div className="flex-1 flex flex-col min-h-0">
+          <div className="flex-1 flex flex-col h-full overflow-hidden">
             <ChatInterface 
               currentSessionId={currentSessionId}
               onSessionIdChange={setCurrentSessionId}
