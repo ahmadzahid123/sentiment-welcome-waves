@@ -369,7 +369,7 @@ const PrayerTimes = () => {
                     <div className="text-sm text-muted-foreground">{prayer.arabic}</div>
                   </div>
                   <Badge variant="secondary" className="font-mono">
-                    {prayerTimes[prayer.key as keyof PrayerTimesData]}
+                    {prayerTimes[prayer.key as keyof PrayerTimesData] as string}
                   </Badge>
                 </div>
               ))}
