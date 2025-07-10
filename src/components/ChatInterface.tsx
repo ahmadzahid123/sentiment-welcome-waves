@@ -1,3 +1,4 @@
+
 import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -5,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card } from '@/components/ui/card';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Send, Bot, User, Loader2 } from 'lucide-react';
+import { Send, Bot, User, Loader2, Plus, Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -18,7 +19,7 @@ interface Message {
 
 interface ChatInterfaceProps {
   currentSessionId: string | null;
-  onSessionIdChange: (sessionId: string) => void;
+  onSessionIdChange: (sessionId: string | null) => void;
 }
 
 const ChatInterface = ({ currentSessionId, onSessionIdChange }: ChatInterfaceProps) => {
@@ -27,6 +28,7 @@ const ChatInterface = ({ currentSessionId, onSessionIdChange }: ChatInterfacePro
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [sessionTitle, setSessionTitle] = useState<string>('');
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
   // Load messages when session changes
@@ -34,10 +36,22 @@ const ChatInterface = ({ currentSessionId, onSessionIdChange }: ChatInterfacePro
     const loadMessages = async () => {
       if (!currentSessionId) {
         setMessages([]);
+        setSessionTitle('');
         return;
       }
 
       try {
+        // Load session details
+        const { data: sessionData, error: sessionError } = await supabase
+          .from('chat_sessions')
+          .select('title')
+          .eq('id', currentSessionId)
+          .single();
+
+        if (sessionError) throw sessionError;
+        setSessionTitle(sessionData.title || 'New Chat');
+
+        // Load messages
         const { data, error } = await supabase
           .from('messages')
           .select('*')
@@ -75,6 +89,83 @@ const ChatInterface = ({ currentSessionId, onSessionIdChange }: ChatInterfacePro
     }
   }, [messages]);
 
+  const createNewChat = async () => {
+    if (!user) return;
+
+    try {
+      // First, delete the existing session if it exists and has no messages
+      if (currentSessionId && messages.length === 0) {
+        await supabase
+          .from('chat_sessions')
+          .delete()
+          .eq('id', currentSessionId);
+      }
+
+      // Create new session
+      const { data, error } = await supabase
+        .from('chat_sessions')
+        .insert([
+          {
+            user_id: user.id,
+            title: 'New Chat',
+          }
+        ])
+        .select()
+        .single();
+
+      if (error) throw error;
+      
+      onSessionIdChange(data.id);
+      setMessages([]);
+      setSessionTitle('New Chat');
+      
+      toast({
+        title: "New chat created",
+        description: "Started a fresh conversation",
+      });
+    } catch (error: any) {
+      console.error('Error creating new chat:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create new chat",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const clearCurrentChat = async () => {
+    if (!currentSessionId || !user) return;
+
+    try {
+      // Delete all messages in current session
+      await supabase
+        .from('messages')
+        .delete()
+        .eq('session_id', currentSessionId);
+
+      // Update session title
+      await supabase
+        .from('chat_sessions')
+        .update({ title: 'New Chat', updated_at: new Date().toISOString() })
+        .eq('id', currentSessionId);
+
+      setMessages([]);
+      setSessionTitle('New Chat');
+      
+      toast({
+        title: "Chat cleared",
+        description: "All messages have been removed",
+      });
+    } catch (error: any) {
+      console.error('Error clearing chat:', error);
+      toast({
+        title: "Error",
+        description: "Failed to clear chat",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleSend = async () => {
     if (!input.trim() || !user) return;
 
@@ -96,6 +187,7 @@ const ChatInterface = ({ currentSessionId, onSessionIdChange }: ChatInterfacePro
         if (error) throw error;
         sessionId = data.id;
         onSessionIdChange(sessionId);
+        setSessionTitle(generateSessionTitle(input.trim()));
       } catch (error: any) {
         console.error('Error creating session:', error);
         toast({
@@ -132,12 +224,13 @@ const ChatInterface = ({ currentSessionId, onSessionIdChange }: ChatInterfacePro
         ]);
 
       // Update session title based on first user message if it's still default
-      if (messages.length === 0) {
+      if (messages.length === 0 && sessionTitle === 'New Chat') {
         const title = generateSessionTitle(userMessage.content);
         await supabase
           .from('chat_sessions')
           .update({ title, updated_at: new Date().toISOString() })
           .eq('id', sessionId);
+        setSessionTitle(title);
       }
 
       // Call AI function
@@ -227,11 +320,43 @@ const ChatInterface = ({ currentSessionId, onSessionIdChange }: ChatInterfacePro
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      {/* Header */}
+      {/* Header with chat controls */}
       <div className="border-b bg-card/50 backdrop-blur-sm p-3 md:p-4 flex-shrink-0">
         <div className="container mx-auto max-w-4xl">
-          <h1 className="text-lg md:text-2xl font-bold text-gradient-primary">Islamic AI Assistant</h1>
-          <p className="text-xs md:text-sm text-muted-foreground">Ask me anything about Islam, Quran, Hadith, or Islamic guidance</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-lg md:text-2xl font-bold text-gradient-primary">
+                {sessionTitle || 'Islamic AI Assistant'}
+              </h1>
+              <p className="text-xs md:text-sm text-muted-foreground">
+                Ask me anything about Islam, Quran, Hadith, or Islamic guidance
+              </p>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={createNewChat}
+                className="flex items-center gap-2"
+              >
+                <Plus className="w-4 h-4" />
+                <span className="hidden sm:inline">New Chat</span>
+              </Button>
+              
+              {messages.length > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearCurrentChat}
+                  className="flex items-center gap-2 text-orange-600 hover:text-orange-700"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span className="hidden sm:inline">Clear</span>
+                </Button>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -244,9 +369,15 @@ const ChatInterface = ({ currentSessionId, onSessionIdChange }: ChatInterfacePro
               <h2 className="text-lg md:text-xl font-semibold mb-2 text-gradient-primary">
                 السلام عليكم ورحمة الله وبركاته
               </h2>
-              <p className="text-sm text-muted-foreground px-4">
+              <p className="text-sm text-muted-foreground px-4 mb-4">
                 Welcome to your Islamic AI Assistant. How can I help you today with Islamic knowledge, prayers, or spiritual guidance?
               </p>
+              {!currentSessionId && (
+                <Button onClick={createNewChat} className="bg-gradient-primary">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Start New Conversation
+                </Button>
+              )}
             </div>
           )}
           

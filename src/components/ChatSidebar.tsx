@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -14,7 +15,7 @@ import {
 } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { MessageSquare, Plus, LogOut, User, Trash2 } from 'lucide-react';
+import { MessageSquare, Plus, LogOut, User, Trash2, Clock } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
 interface ChatSession {
@@ -22,6 +23,7 @@ interface ChatSession {
   title: string;
   created_at: string;
   updated_at: string;
+  message_count: number;
 }
 
 interface ChatSidebarProps {
@@ -42,14 +44,31 @@ const ChatSidebar = ({ currentSessionId, onSessionSelect, onNewChat }: ChatSideb
       if (!user) return;
 
       try {
-        const { data, error } = await supabase
+        // Get sessions with message count
+        const { data: sessionsData, error: sessionsError } = await supabase
           .from('chat_sessions')
           .select('*')
           .eq('user_id', user.id)
           .order('updated_at', { ascending: false });
 
-        if (error) throw error;
-        setSessions(data || []);
+        if (sessionsError) throw sessionsError;
+
+        // Get message counts for each session
+        const sessionsWithCounts = await Promise.all(
+          (sessionsData || []).map(async (session) => {
+            const { count } = await supabase
+              .from('messages')
+              .select('*', { count: 'exact', head: true })
+              .eq('session_id', session.id);
+
+            return {
+              ...session,
+              message_count: count || 0
+            };
+          })
+        );
+
+        setSessions(sessionsWithCounts);
       } catch (error: any) {
         console.error('Error loading sessions:', error);
         toast({
@@ -104,7 +123,7 @@ const ChatSidebar = ({ currentSessionId, onSessionSelect, onNewChat }: ChatSideb
     }
   };
 
-  const truncateTitle = (title: string, maxLength: number = 40) => {
+  const truncateTitle = (title: string, maxLength: number = 35) => {
     return title.length > maxLength ? title.substring(0, maxLength) + '...' : title;
   };
 
@@ -134,7 +153,8 @@ const ChatSidebar = ({ currentSessionId, onSessionSelect, onNewChat }: ChatSideb
               </div>
             ) : sessions.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground text-sm">
-                No chat sessions yet.<br />Start a new conversation!
+                No chat sessions yet.<br />
+                <span className="text-xs">Click "New Chat" to start!</span>
               </div>
             ) : (
               sessions.map((session) => (
@@ -151,15 +171,24 @@ const ChatSidebar = ({ currentSessionId, onSessionSelect, onNewChat }: ChatSideb
                       <div className="font-medium text-sm mb-1">
                         {truncateTitle(session.title || 'New Chat')}
                       </div>
-                      <div className="text-xs text-muted-foreground">
-                        {formatDistanceToNow(new Date(session.updated_at), { addSuffix: true })}
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Clock className="w-3 h-3" />
+                        <span>
+                          {formatDistanceToNow(new Date(session.updated_at), { addSuffix: true })}
+                        </span>
+                        {session.message_count > 0 && (
+                          <>
+                            <span>•</span>
+                            <span>{session.message_count} msg{session.message_count !== 1 ? 's' : ''}</span>
+                          </>
+                        )}
                       </div>
                     </div>
                     
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity p-1 h-6 w-6"
+                      className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity p-1 h-6 w-6 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-950"
                       onClick={(e) => handleDeleteSession(session.id, e)}
                     >
                       <Trash2 className="w-3 h-3" />
