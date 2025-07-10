@@ -1,23 +1,24 @@
+
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { Navigate } from "react-router-dom";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ChatInterface from "@/components/ChatInterface";
 import ChatSidebar from "@/components/ChatSidebar";
+import Dashboard from "@/components/Dashboard";
 import PWAInstallPrompt from "@/components/PWAInstallPrompt";
-import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
+import { MessageSquare, Home } from "lucide-react";
 import islamicLogo from "@/assets/islamic-ai-logo.png";
 
 const Index = () => {
   const { user, loading } = useAuth();
-  const { toast } = useToast();
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
-
-  // No automatic session creation - sessions are created when user first chats
+  const [activeTab, setActiveTab] = useState('dashboard');
 
   const handleNewChat = async () => {
-    setCurrentSessionId(null); // Reset to null so next message creates new session
+    setCurrentSessionId(null);
+    setActiveTab('chat');
   };
 
   if (loading) {
@@ -41,7 +42,10 @@ const Index = () => {
       <div className="h-screen flex w-full overflow-hidden">
         <ChatSidebar 
           currentSessionId={currentSessionId}
-          onSessionSelect={setCurrentSessionId}
+          onSessionSelect={(sessionId) => {
+            setCurrentSessionId(sessionId);
+            setActiveTab('chat');
+          }}
           onNewChat={handleNewChat}
         />
         
@@ -54,10 +58,35 @@ const Index = () => {
           </div>
           
           <div className="flex-1 flex flex-col h-full overflow-hidden">
-            <ChatInterface 
-              currentSessionId={currentSessionId}
-              onSessionIdChange={setCurrentSessionId}
-            />
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
+              {/* Tab Navigation */}
+              <div className="border-b bg-card/50 backdrop-blur-sm px-4 py-2 flex-shrink-0">
+                <TabsList className="grid w-full max-w-md grid-cols-2">
+                  <TabsTrigger value="dashboard" className="flex items-center gap-2">
+                    <Home className="w-4 h-4" />
+                    <span className="hidden sm:inline">Dashboard</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="chat" className="flex items-center gap-2">
+                    <MessageSquare className="w-4 h-4" />
+                    <span className="hidden sm:inline">AI Chat</span>
+                  </TabsTrigger>
+                </TabsList>
+              </div>
+
+              {/* Tab Content */}
+              <div className="flex-1 overflow-hidden">
+                <TabsContent value="dashboard" className="h-full mt-0 overflow-auto">
+                  <Dashboard />
+                </TabsContent>
+                
+                <TabsContent value="chat" className="h-full mt-0 flex flex-col">
+                  <ChatInterface 
+                    currentSessionId={currentSessionId}
+                    onSessionIdChange={setCurrentSessionId}
+                  />
+                </TabsContent>
+              </div>
+            </Tabs>
           </div>
         </SidebarInset>
         
