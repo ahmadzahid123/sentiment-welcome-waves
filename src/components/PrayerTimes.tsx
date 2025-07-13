@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Clock, MapPin, Settings, Compass, Calendar, AlertTriangle } from 'lucide-react';
+import { Clock, MapPin, Settings, Compass, Calendar, AlertTriangle, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
@@ -19,11 +19,6 @@ interface PrayerTimesData {
   location: string;
   qiblaDirection: number;
   hijriDate: string;
-  prohibitedTimes: Array<{
-    name: string;
-    start: string;
-    end: string;
-  }>;
 }
 
 interface CalculationMethod {
@@ -36,30 +31,25 @@ const PrayerTimes = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [prayerTimes, setPrayerTimes] = useState<PrayerTimesData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [location, setLocation] = useState<{ lat: number; lng: number; city: string } | null>(null);
   const [nextPrayer, setNextPrayer] = useState<{ name: string; time: string; remaining: string } | null>(null);
-  const [selectedMethod, setSelectedMethod] = useState<number>(2); // Default to Islamic Society of North America
-  const [selectedSchool, setSelectedSchool] = useState<number>(0); // Default to Shafi/Hanbali/Maliki
+  const [selectedMethod, setSelectedMethod] = useState<number>(2);
+  const [selectedSchool, setSelectedSchool] = useState<number>(0);
   
   const calculationMethods: CalculationMethod[] = [
-    { id: 1, name: "University of Islamic Sciences, Karachi", description: "Used in Pakistan, Bangladesh, India, Afghanistan, parts of Europe" },
-    { id: 2, name: "Islamic Society of North America", description: "Used in North America (US and Canada)" },
-    { id: 3, name: "Muslim World League", description: "Used in Europe, Far East, parts of US" },
-    { id: 4, name: "Umm Al-Qura University, Makkah", description: "Used in Saudi Arabia" },
-    { id: 5, name: "Egyptian General Authority of Survey", description: "Used in Africa, Syria, Iraq, Lebanon, Malaysia, Brunei, Indonesia" },
-    { id: 7, name: "Institute of Geophysics, University of Tehran", description: "Used in Iran, some Shia communities" },
-    { id: 8, name: "Gulf Region", description: "Used in Kuwait, Qatar, Bahrain, Oman, UAE" },
-    { id: 9, name: "Kuwait", description: "Used in Kuwait" },
-    { id: 10, name: "Qatar", description: "Used in Qatar" },
-    { id: 11, name: "Majlis Ugama Islam Singapura, Singapore", description: "Used in Singapore" },
-    { id: 12, name: "Union Organization Islamic de France", description: "Used in France" },
-    { id: 13, name: "Diyanet İşleri Başkanlığı, Turkey", description: "Used in Turkey" }
+    { id: 1, name: "University of Islamic Sciences, Karachi", description: "Pakistan, Bangladesh, India" },
+    { id: 2, name: "Islamic Society of North America", description: "North America" },
+    { id: 3, name: "Muslim World League", description: "Europe, Far East" },
+    { id: 4, name: "Umm Al-Qura University, Makkah", description: "Saudi Arabia" },
+    { id: 5, name: "Egyptian General Authority", description: "Africa, Syria, Iraq" },
+    { id: 8, name: "Gulf Region", description: "Kuwait, Qatar, UAE" }
   ];
 
   const juristicSchools = [
     { id: 0, name: "Shafi/Hanbali/Maliki", description: "Standard method" },
-    { id: 1, name: "Hanafi", description: "Used in Central Asia, Egypt, Syria, Turkey, Balkans, Indian subcontinent" }
+    { id: 1, name: "Hanafi", description: "Central Asia, Turkey" }
   ];
 
   const prayerNames = [
@@ -72,108 +62,148 @@ const PrayerTimes = () => {
   ];
 
   useEffect(() => {
-    getLocationAndFetchPrayerTimes();
-  }, [selectedMethod, selectedSchool]);
+    if (!location) {
+      getCurrentLocation();
+    } else {
+      fetchPrayerTimes();
+    }
+  }, [location, selectedMethod, selectedSchool]);
 
   useEffect(() => {
     const interval = setInterval(() => {
       if (prayerTimes) {
-        updateNextPrayer(prayerTimes);
+        updateNextPrayer();
       }
-    }, 60000); // Update every minute
+    }, 60000);
 
     return () => clearInterval(interval);
   }, [prayerTimes]);
 
-  const getLocationAndFetchPrayerTimes = async () => {
-    try {
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          async (position) => {
-            const { latitude, longitude } = position.coords;
-            setLocation({ lat: latitude, lng: longitude });
-            await fetchPrayerTimes(latitude, longitude);
-          },
-          () => {
-            // Fallback to a default location (Mecca)
-            fetchPrayerTimes(21.4225, 39.8262);
-          }
-        );
-      } else {
-        // Fallback to Mecca
-        fetchPrayerTimes(21.4225, 39.8262);
-      }
-    } catch (error) {
-      console.error('Error getting location:', error);
-      setLoading(false);
+  const getCurrentLocation = () => {
+    setLoading(true);
+    setError(null);
+
+    if (!navigator.geolocation) {
+      setError('Geolocation is not supported by this browser');
+      setDefaultLocation();
+      return;
     }
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        try {
+          // Get city name from coordinates
+          const cityName = await getCityName(latitude, longitude);
+          setLocation({ lat: latitude, lng: longitude, city: cityName });
+        } catch (err) {
+          console.error('Error getting city name:', err);
+          setLocation({ lat: latitude, lng: longitude, city: 'Unknown Location' });
+        }
+      },
+      (error) => {
+        console.error('Geolocation error:', error);
+        toast({
+          title: "Location Error",
+          description: "Using default location (Mecca). Please enable location access for accurate prayer times.",
+          variant: "destructive",
+        });
+        setDefaultLocation();
+      },
+      { timeout: 10000, enableHighAccuracy: false }
+    );
   };
 
-  const fetchPrayerTimes = async (lat: number, lng: number) => {
+  const setDefaultLocation = () => {
+    setLocation({ lat: 21.4225, lng: 39.8262, city: 'Mecca, Saudi Arabia' });
+  };
+
+  const getCityName = async (lat: number, lng: number): Promise<string> => {
     try {
-      setLoading(true);
-      
-      // Get current date
+      // Using a free geocoding service
+      const response = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`);
+      if (response.ok) {
+        const data = await response.json();
+        return data.city || data.locality || data.principalSubdivision || 'Unknown Location';
+      }
+    } catch (err) {
+      console.error('Geocoding error:', err);
+    }
+    return 'Unknown Location';
+  };
+
+  const fetchPrayerTimes = async () => {
+    if (!location) return;
+    
+    setLoading(true);
+    setError(null);
+    
+    try {
       const today = new Date();
-      const dateStr = `${today.getDate()}-${today.getMonth() + 1}-${today.getFullYear()}`;
+      const dateStr = `${String(today.getDate()).padStart(2, '0')}-${String(today.getMonth() + 1).padStart(2, '0')}-${today.getFullYear()}`;
       
-      // Fetch prayer times with IslamicAPI
-      const prayerResponse = await fetch(
-        `https://api.aladhan.com/v1/timings/${dateStr}?latitude=${lat}&longitude=${lng}&method=${selectedMethod}&school=${selectedSchool}`
+      // Fetch prayer times
+      const response = await fetch(
+        `https://api.aladhan.com/v1/timings/${dateStr}?latitude=${location.lat}&longitude=${location.lng}&method=${selectedMethod}&school=${selectedSchool}`,
+        {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+          }
+        }
       );
       
-      if (!prayerResponse.ok) throw new Error('Failed to fetch prayer times');
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
       
-      const prayerData = await prayerResponse.json();
-      const timings = prayerData.data.timings;
+      const data = await response.json();
       
-      // Fetch Qibla direction
-      const qiblaResponse = await fetch(
-        `https://api.aladhan.com/v1/qibla/${lat}/${lng}`
-      );
+      if (data.code !== 200) {
+        throw new Error(data.data || 'Failed to fetch prayer times');
+      }
       
+      const timings = data.data.timings;
+      const meta = data.data.meta;
+      const date = data.data.date;
+      
+      // Get Qibla direction
       let qiblaDirection = 0;
-      if (qiblaResponse.ok) {
-        const qiblaData = await qiblaResponse.json();
-        qiblaDirection = qiblaData.data.direction;
+      try {
+        const qiblaResponse = await fetch(`https://api.aladhan.com/v1/qibla/${location.lat}/${location.lng}`);
+        if (qiblaResponse.ok) {
+          const qiblaData = await qiblaResponse.json();
+          if (qiblaData.code === 200) {
+            qiblaDirection = qiblaData.data.direction;
+          }
+        }
+      } catch (err) {
+        console.error('Qibla fetch error:', err);
       }
-
-      // Fetch Hijri date
-      const hijriResponse = await fetch(
-        `https://api.aladhan.com/v1/gToH/${today.getDate()}-${today.getMonth() + 1}-${today.getFullYear()}`
-      );
-      
-      let hijriDate = '';
-      if (hijriResponse.ok) {
-        const hijriData = await hijriResponse.json();
-        hijriDate = `${hijriData.data.hijri.day} ${hijriData.data.hijri.month.en} ${hijriData.data.hijri.year}`;
-      }
-
-      // Calculate prohibited prayer times
-      const prohibitedTimes = calculateProhibitedTimes(timings);
       
       const prayerTimesData: PrayerTimesData = {
-        fajr: timings.Fajr,
-        sunrise: timings.Sunrise,
-        dhuhr: timings.Dhuhr,
-        asr: timings.Asr,
-        maghrib: timings.Maghrib,
-        isha: timings.Isha,
-        date: prayerData.data.date.readable,
-        location: prayerData.data.meta.timezone,
-        qiblaDirection,
-        hijriDate,
-        prohibitedTimes
+        fajr: formatTime(timings.Fajr),
+        sunrise: formatTime(timings.Sunrise),
+        dhuhr: formatTime(timings.Dhuhr),
+        asr: formatTime(timings.Asr),
+        maghrib: formatTime(timings.Maghrib),
+        isha: formatTime(timings.Isha),
+        date: date.readable,
+        location: location.city,
+        qiblaDirection: Math.round(qiblaDirection * 10) / 10,
+        hijriDate: `${date.hijri.day} ${date.hijri.month.en} ${date.hijri.year} AH`
       };
       
       setPrayerTimes(prayerTimesData);
       updateNextPrayer(prayerTimesData);
       
-    } catch (error) {
-      console.error('Error fetching prayer times:', error);
+    } catch (err) {
+      console.error('Prayer times fetch error:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch prayer times';
+      setError(errorMessage);
       toast({
         title: "Error",
-        description: "Failed to fetch prayer times. Please try again.",
+        description: errorMessage + ". Please try again later.",
         variant: "destructive",
       });
     } finally {
@@ -181,72 +211,62 @@ const PrayerTimes = () => {
     }
   };
 
-  const calculateProhibitedTimes = (timings: any) => {
-    const prohibited = [];
-    
-    // After sunrise (15-20 minutes)
-    const sunriseTime = new Date(`1970-01-01T${timings.Sunrise}:00`);
-    const afterSunrise = new Date(sunriseTime.getTime() + 20 * 60000);
-    prohibited.push({
-      name: "After Sunrise",
-      start: timings.Sunrise,
-      end: afterSunrise.toTimeString().slice(0, 5)
-    });
-
-    // Before Dhuhr (15 minutes)
-    const dhuhrTime = new Date(`1970-01-01T${timings.Dhuhr}:00`);
-    const beforeDhuhr = new Date(dhuhrTime.getTime() - 15 * 60000);
-    prohibited.push({
-      name: "Before Dhuhr",
-      start: beforeDhuhr.toTimeString().slice(0, 5),
-      end: timings.Dhuhr
-    });
-
-    // After Asr until Maghrib
-    prohibited.push({
-      name: "After Asr",
-      start: timings.Asr,
-      end: timings.Maghrib
-    });
-
-    return prohibited;
+  const formatTime = (time: string): string => {
+    try {
+      const [hours, minutes] = time.split(':');
+      const hour24 = parseInt(hours);
+      const hour12 = hour24 === 0 ? 12 : hour24 > 12 ? hour24 - 12 : hour24;
+      const ampm = hour24 >= 12 ? 'PM' : 'AM';
+      return `${hour12}:${minutes} ${ampm}`;
+    } catch {
+      return time;
+    }
   };
 
-  const updateNextPrayer = (times: PrayerTimesData) => {
+  const updateNextPrayer = (times?: PrayerTimesData) => {
+    const currentTimes = times || prayerTimes;
+    if (!currentTimes) return;
+
     const now = new Date();
-    const currentTime = now.getHours() * 60 + now.getMinutes();
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
     
     const prayers = [
-      { name: 'Fajr', time: times.fajr, arabic: 'الفجر' },
-      { name: 'Sunrise', time: times.sunrise, arabic: 'الشروق' },
-      { name: 'Dhuhr', time: times.dhuhr, arabic: 'الظهر' },
-      { name: 'Asr', time: times.asr, arabic: 'العصر' },
-      { name: 'Maghrib', time: times.maghrib, arabic: 'المغرب' },
-      { name: 'Isha', time: times.isha, arabic: 'العشاء' }
+      { name: 'Fajr', time: currentTimes.fajr, arabic: 'الفجر' },
+      { name: 'Sunrise', time: currentTimes.sunrise, arabic: 'الشروق' },
+      { name: 'Dhuhr', time: currentTimes.dhuhr, arabic: 'الظهر' },
+      { name: 'Asr', time: currentTimes.asr, arabic: 'العصر' },
+      { name: 'Maghrib', time: currentTimes.maghrib, arabic: 'المغرب' },
+      { name: 'Isha', time: currentTimes.isha, arabic: 'العشاء' }
     ];
 
     for (const prayer of prayers) {
-      const [hours, minutes] = prayer.time.split(':').map(Number);
-      const prayerTime = hours * 60 + minutes;
-      
-      if (prayerTime > currentTime) {
-        const remainingMinutes = prayerTime - currentTime;
-        const remainingHours = Math.floor(remainingMinutes / 60);
-        const remainingMins = remainingMinutes % 60;
-        const remaining = remainingHours > 0 
-          ? `${remainingHours}h ${remainingMins}m` 
-          : `${remainingMins}m`;
+      try {
+        const timeStr = prayer.time.replace(/AM|PM/g, '').trim();
+        const [hours, minutes] = timeStr.split(':').map(Number);
+        const isPM = prayer.time.includes('PM');
+        const hour24 = isPM && hours !== 12 ? hours + 12 : !isPM && hours === 12 ? 0 : hours;
+        const prayerMinutes = hour24 * 60 + minutes;
         
-        setNextPrayer({ 
-          name: `${prayer.name} (${prayer.arabic})`, 
-          time: prayer.time,
-          remaining 
-        });
-        return;
+        if (prayerMinutes > currentMinutes) {
+          const remainingMinutes = prayerMinutes - currentMinutes;
+          const remainingHours = Math.floor(remainingMinutes / 60);
+          const remainingMins = remainingMinutes % 60;
+          const remaining = remainingHours > 0 
+            ? `${remainingHours}h ${remainingMins}m` 
+            : `${remainingMins}m`;
+          
+          setNextPrayer({ 
+            name: `${prayer.name} (${prayer.arabic})`, 
+            time: prayer.time,
+            remaining 
+          });
+          return;
+        }
+      } catch (err) {
+        console.error('Time parsing error:', err);
       }
     }
     
-    // If no prayer found today, next is Fajr tomorrow
     setNextPrayer({ 
       name: `Fajr (${prayers[0].arabic})`, 
       time: prayers[0].time,
@@ -254,18 +274,46 @@ const PrayerTimes = () => {
     });
   };
 
-  if (loading) {
+  const handleRefresh = () => {
+    setLocation(null);
+    setPrayerTimes(null);
+    setError(null);
+    getCurrentLocation();
+  };
+
+  if (loading && !prayerTimes) {
     return (
       <Card className="animate-pulse">
         <CardHeader>
-          <div className="h-4 bg-muted rounded w-1/3"></div>
+          <div className="h-6 bg-muted rounded w-1/2"></div>
+          <div className="h-4 bg-muted rounded w-1/3 mt-2"></div>
         </CardHeader>
         <CardContent>
-          <div className="space-y-2">
+          <div className="space-y-3">
             {[1, 2, 3, 4, 5, 6].map((i) => (
-              <div key={i} className="h-3 bg-muted rounded"></div>
+              <div key={i} className="h-16 bg-muted rounded"></div>
             ))}
           </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (error && !prayerTimes) {
+    return (
+      <Card className="border-destructive">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-destructive">
+            <AlertTriangle className="w-5 h-5" />
+            Error Loading Prayer Times
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-muted-foreground mb-4">{error}</p>
+          <Button onClick={handleRefresh} variant="outline">
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Try Again
+          </Button>
         </CardContent>
       </Card>
     );
@@ -274,9 +322,9 @@ const PrayerTimes = () => {
   return (
     <div className="space-y-4">
       {/* Settings */}
-      <Card className="shadow-islamic">
+      <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-gradient-primary">
+          <CardTitle className="flex items-center gap-2">
             <Settings className="w-5 h-5" />
             Prayer Settings
           </CardTitle>
@@ -325,11 +373,12 @@ const PrayerTimes = () => {
       </Card>
 
       {/* Main Prayer Times */}
-      <Card className="shadow-islamic">
+      <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-gradient-primary">
+          <CardTitle className="flex items-center gap-2">
             <Clock className="w-5 h-5" />
             Prayer Times
+            {loading && <RefreshCw className="w-4 h-4 animate-spin" />}
           </CardTitle>
           {prayerTimes && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -346,7 +395,7 @@ const PrayerTimes = () => {
         
         <CardContent className="space-y-3">
           {nextPrayer && (
-            <div className="p-3 bg-gradient-primary/10 rounded-lg border border-primary/20">
+            <div className="p-3 bg-primary/10 rounded-lg border border-primary/20">
               <div className="text-sm text-primary font-medium">Next Prayer</div>
               <div className="text-lg font-bold text-primary">
                 {nextPrayer.name} - {nextPrayer.time}
@@ -380,29 +429,29 @@ const PrayerTimes = () => {
 
       {/* Qibla Direction */}
       {prayerTimes && (
-        <Card className="shadow-islamic">
+        <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-gradient-primary">
+            <CardTitle className="flex items-center gap-2">
               <Compass className="w-5 h-5" />
               Qibla Direction
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center justify-center space-y-2">
+            <div className="flex items-center justify-center">
               <div className="text-center">
                 <div className="text-3xl font-bold text-primary">
-                  {prayerTimes.qiblaDirection.toFixed(1)}°
+                  {prayerTimes.qiblaDirection}°
                 </div>
                 <div className="text-sm text-muted-foreground">
                   from North (clockwise)
                 </div>
                 <div className="mt-4">
                   <div 
-                    className="w-16 h-16 mx-auto border-2 border-primary rounded-full flex items-center justify-center relative"
+                    className="w-16 h-16 mx-auto border-2 border-primary rounded-full flex items-center justify-center relative transition-transform duration-500"
                     style={{ transform: `rotate(${prayerTimes.qiblaDirection}deg)` }}
                   >
-                    <div className="w-1 h-6 bg-primary absolute top-1"></div>
                     <Compass className="w-8 h-8 text-primary" />
+                    <div className="absolute top-1 w-1 h-6 bg-primary rounded-full"></div>
                   </div>
                 </div>
               </div>
@@ -411,43 +460,14 @@ const PrayerTimes = () => {
         </Card>
       )}
 
-      {/* Prohibited Prayer Times */}
-      {prayerTimes && prayerTimes.prohibitedTimes.length > 0 && (
-        <Card className="shadow-islamic">
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-gradient-primary">
-              <AlertTriangle className="w-5 h-5" />
-              Prohibited Prayer Times
-            </CardTitle>
-            <p className="text-sm text-muted-foreground">
-              Times when voluntary prayers should be avoided
-            </p>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {prayerTimes.prohibitedTimes.map((time, index) => (
-                <div key={index} className="flex justify-between items-center p-2 bg-orange-50 dark:bg-orange-950/20 rounded border border-orange-200 dark:border-orange-800">
-                  <span className="font-medium text-orange-800 dark:text-orange-200">
-                    {time.name}
-                  </span>
-                  <span className="text-sm text-orange-600 dark:text-orange-300 font-mono">
-                    {time.start} - {time.end}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       <Button
-        variant="ghost"
+        variant="outline"
         size="sm"
-        onClick={getLocationAndFetchPrayerTimes}
-        className="w-full mt-4"
+        onClick={handleRefresh}
+        className="w-full"
         disabled={loading}
       >
-        <Settings className="w-4 h-4 mr-2" />
+        <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
         Refresh Prayer Times
       </Button>
     </div>

@@ -2,10 +2,12 @@
 import { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Clock, Book, Mic, MessageSquare, Globe, Heart } from 'lucide-react';
+import { Clock, Book, Mic, MessageSquare, Globe, Heart, Calendar, Moon } from 'lucide-react';
 import PrayerTimes from './PrayerTimes';
 import IslamicKnowledge from './IslamicKnowledge';
 import VoiceFeatures from './VoiceFeatures';
+import IslamicCalendar from './IslamicCalendar';
+import DailyVerse from './DailyVerse';
 
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState('overview');
@@ -30,17 +32,17 @@ const Dashboard = () => {
       count: 'Thousands of Sources'
     },
     {
-      icon: Mic,
-      title: 'Voice Features',
-      description: 'Speech-to-text and text-to-speech in multiple languages',
-      count: 'Multilingual Support'
+      icon: Calendar,
+      title: 'Islamic Calendar',
+      description: 'Current Hijri date and upcoming Islamic events',
+      count: 'Live Updates'
     }
   ];
 
   return (
     <div className="container mx-auto max-w-6xl p-4 space-y-6">
       <div className="text-center mb-8">
-        <h1 className="text-3xl md:text-4xl font-bold text-gradient-primary mb-2">
+        <h1 className="text-3xl md:text-4xl font-bold mb-2">
           Islamic AI Assistant
         </h1>
         <p className="text-muted-foreground">
@@ -49,7 +51,7 @@ const Dashboard = () => {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-4 mb-6">
+        <TabsList className="grid w-full grid-cols-5 mb-6">
           <TabsTrigger value="overview" className="flex items-center gap-2">
             <Heart className="w-4 h-4" />
             <span className="hidden sm:inline">Overview</span>
@@ -61,6 +63,10 @@ const Dashboard = () => {
           <TabsTrigger value="knowledge" className="flex items-center gap-2">
             <Book className="w-4 h-4" />
             <span className="hidden sm:inline">Knowledge</span>
+          </TabsTrigger>
+          <TabsTrigger value="calendar" className="flex items-center gap-2">
+            <Moon className="w-4 h-4" />
+            <span className="hidden sm:inline">Calendar</span>
           </TabsTrigger>
           <TabsTrigger value="voice" className="flex items-center gap-2">
             <Mic className="w-4 h-4" />
@@ -74,7 +80,7 @@ const Dashboard = () => {
             <CardContent className="pt-6">
               <div className="text-center space-y-4">
                 <div className="text-2xl">🌙</div>
-                <h2 className="text-xl font-semibold text-gradient-primary">
+                <h2 className="text-xl font-semibold">
                   السلام عليكم ورحمة الله وبركاته
                 </h2>
                 <p className="text-muted-foreground max-w-2xl mx-auto">
@@ -88,13 +94,13 @@ const Dashboard = () => {
           {/* Features Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {features.map((feature, index) => (
-              <Card key={index} className="shadow-islamic hover:shadow-lg transition-shadow cursor-pointer"
+              <Card key={index} className="hover:shadow-lg transition-shadow cursor-pointer"
                     onClick={() => {
                       const tabMap: { [key: string]: string } = {
                         'AI Chat Assistant': 'chat',
                         'Prayer Times': 'prayers',
                         'Islamic Knowledge': 'knowledge',
-                        'Voice Features': 'voice'
+                        'Islamic Calendar': 'calendar'
                       };
                       const targetTab = tabMap[feature.title];
                       if (targetTab) setActiveTab(targetTab);
@@ -119,45 +125,15 @@ const Dashboard = () => {
             ))}
           </div>
 
-          {/* Quick Prayer Times */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <PrayerTimes />
+          {/* Quick Overview */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Daily Verse */}
+            <DailyVerse />
             
-            <Card className="shadow-islamic">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-gradient-primary">
-                  <Globe className="w-5 h-5" />
-                  Quick Features
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3 p-3 bg-card/50 rounded-lg border">
-                    <MessageSquare className="w-5 h-5 text-primary" />
-                    <div>
-                      <p className="font-medium">Islamic AI Chat</p>
-                      <p className="text-sm text-muted-foreground">Ask questions about Islam</p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-3 p-3 bg-card/50 rounded-lg border">
-                    <Book className="w-5 h-5 text-primary" />
-                    <div>
-                      <p className="font-medium">Quran & Hadith</p>
-                      <p className="text-sm text-muted-foreground">Browse Islamic texts</p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-3 p-3 bg-card/50 rounded-lg border">
-                    <Mic className="w-5 h-5 text-primary" />
-                    <div>
-                      <p className="font-medium">Voice Support</p>
-                      <p className="text-sm text-muted-foreground">Multilingual TTS & STT</p>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            {/* Quick Prayer Times */}
+            <div className="lg:col-span-2">
+              <PrayerTimes />
+            </div>
           </div>
         </TabsContent>
 
@@ -167,6 +143,10 @@ const Dashboard = () => {
 
         <TabsContent value="knowledge">
           <IslamicKnowledge />
+        </TabsContent>
+
+        <TabsContent value="calendar">
+          <IslamicCalendar />
         </TabsContent>
 
         <TabsContent value="voice">
