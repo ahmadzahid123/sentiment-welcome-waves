@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Clock, Book, Mic, MessageSquare, Globe, Heart, Calendar, Moon } from 'lucide-react';
+import { Clock, Book, Mic, MessageSquare, Globe, Heart, Calendar, Moon, Star } from 'lucide-react';
 import PrayerTimes from './PrayerTimes';
 import IslamicKnowledge from './IslamicKnowledge';
 import VoiceFeatures from './VoiceFeatures';
@@ -14,39 +14,46 @@ const Dashboard = () => {
 
   const features = [
     {
-      icon: MessageSquare,
-      title: 'AI Chat Assistant',
-      description: 'Get Islamic guidance and answers from our AI powered by authentic sources',
-      count: 'Always Available'
-    },
-    {
       icon: Clock,
       title: 'Prayer Times',
       description: 'Accurate prayer times based on your location with notifications',
-      count: '5 Daily Prayers'
+      count: '5 Daily Prayers',
+      color: 'bg-blue-500'
     },
     {
       icon: Book,
       title: 'Islamic Knowledge',
       description: 'Browse Quran verses, Hadith, and Islamic teachings',
-      count: 'Thousands of Sources'
+      count: 'Thousands of Sources',
+      color: 'bg-green-500'
     },
     {
-      icon: Calendar,
+      icon: Moon,
       title: 'Islamic Calendar',
       description: 'Current Hijri date and upcoming Islamic events',
-      count: 'Live Updates'
+      count: 'Live Updates',
+      color: 'bg-purple-500'
+    },
+    {
+      icon: Star,
+      title: 'Daily Verse',
+      description: 'Daily Quran verses with translation and audio',
+      count: 'Daily Inspiration',
+      color: 'bg-orange-500'
     }
   ];
 
   return (
     <div className="container mx-auto max-w-6xl p-4 space-y-6">
+      {/* Welcome Header - More prominent */}
       <div className="text-center mb-8">
-        <h1 className="text-3xl md:text-4xl font-bold mb-2">
+        <div className="text-4xl mb-4">🕌</div>
+        <h1 className="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
           Islamic AI Assistant
         </h1>
-        <p className="text-muted-foreground">
-          Your comprehensive Islamic companion powered by AI
+        <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+          السلام عليكم ورحمة الله وبركاته - Your comprehensive Islamic companion with prayer times, 
+          Islamic knowledge, AI chat, and spiritual guidance all in one place.
         </p>
       </div>
 
@@ -75,44 +82,28 @@ const Dashboard = () => {
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
-          {/* Welcome Message */}
-          <Card className="bg-gradient-to-r from-primary/10 to-secondary/10 border-primary/20">
-            <CardContent className="pt-6">
-              <div className="text-center space-y-4">
-                <div className="text-2xl">🌙</div>
-                <h2 className="text-xl font-semibold">
-                  السلام عليكم ورحمة الله وبركاته
-                </h2>
-                <p className="text-muted-foreground max-w-2xl mx-auto">
-                  Welcome to your Islamic AI Assistant. Get prayer times, explore Islamic knowledge, 
-                  chat with our AI for spiritual guidance, and use voice features - all in one place.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Features Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Features Grid - More visual */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {features.map((feature, index) => (
-              <Card key={index} className="hover:shadow-lg transition-shadow cursor-pointer"
+              <Card key={index} className="hover:shadow-xl transition-all duration-300 cursor-pointer transform hover:scale-105 border-2 hover:border-primary/50"
                     onClick={() => {
                       const tabMap: { [key: string]: string } = {
-                        'AI Chat Assistant': 'chat',
                         'Prayer Times': 'prayers',
                         'Islamic Knowledge': 'knowledge',
-                        'Islamic Calendar': 'calendar'
+                        'Islamic Calendar': 'calendar',
+                        'Daily Verse': 'overview' // Stay on overview for daily verse
                       };
                       const targetTab = tabMap[feature.title];
                       if (targetTab) setActiveTab(targetTab);
                     }}>
                 <CardHeader className="pb-3">
                   <div className="flex items-center gap-3">
-                    <div className="p-2 bg-primary/10 rounded-lg">
-                      <feature.icon className="w-5 h-5 text-primary" />
+                    <div className={`p-3 ${feature.color} rounded-lg`}>
+                      <feature.icon className="w-6 h-6 text-white" />
                     </div>
                     <div>
-                      <CardTitle className="text-sm font-medium">{feature.title}</CardTitle>
-                      <p className="text-xs text-primary font-medium">{feature.count}</p>
+                      <CardTitle className="text-lg font-semibold">{feature.title}</CardTitle>
+                      <p className="text-sm text-primary font-medium">{feature.count}</p>
                     </div>
                   </div>
                 </CardHeader>
@@ -125,16 +116,60 @@ const Dashboard = () => {
             ))}
           </div>
 
-          {/* Quick Overview */}
+          {/* Quick Overview Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Daily Verse */}
-            <DailyVerse />
+            {/* Daily Verse - More prominent */}
+            <div className="lg:col-span-1">
+              <DailyVerse />
+            </div>
             
             {/* Quick Prayer Times */}
             <div className="lg:col-span-2">
-              <PrayerTimes />
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Clock className="w-5 h-5" />
+                    Today's Prayer Times
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <PrayerTimes />
+                </CardContent>
+              </Card>
             </div>
           </div>
+
+          {/* Quick Actions */}
+          <Card className="bg-gradient-to-r from-primary/5 to-secondary/5 border-primary/20">
+            <CardContent className="pt-6">
+              <div className="text-center space-y-4">
+                <h3 className="text-2xl font-semibold">Explore More Features</h3>
+                <p className="text-muted-foreground">
+                  Click on any feature card above or use the tabs to explore all Islamic tools and resources
+                </p>
+                <div className="flex flex-wrap justify-center gap-3 mt-4">
+                  <button 
+                    onClick={() => setActiveTab('prayers')}
+                    className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
+                  >
+                    View Prayer Times
+                  </button>
+                  <button 
+                    onClick={() => setActiveTab('knowledge')}
+                    className="px-4 py-2 bg-secondary text-white rounded-lg hover:bg-secondary/90 transition-colors"
+                  >
+                    Browse Knowledge
+                  </button>
+                  <button 
+                    onClick={() => setActiveTab('calendar')}
+                    className="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors"
+                  >
+                    Islamic Calendar
+                  </button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="prayers">

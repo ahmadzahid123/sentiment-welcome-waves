@@ -14,6 +14,7 @@ import islamicLogo from "@/assets/islamic-ai-logo.png";
 const Index = () => {
   const { user, loading } = useAuth();
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+  // Set dashboard as the default active tab so users see all features immediately
   const [activeTab, setActiveTab] = useState('dashboard');
 
   const handleNewChat = async () => {
@@ -59,18 +60,26 @@ const Index = () => {
           
           <div className="flex-1 flex flex-col h-full overflow-hidden">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
-              {/* Tab Navigation */}
-              <div className="border-b bg-card/50 backdrop-blur-sm px-4 py-2 flex-shrink-0">
-                <TabsList className="grid w-full max-w-md grid-cols-2">
-                  <TabsTrigger value="dashboard" className="flex items-center gap-2">
-                    <Home className="w-4 h-4" />
-                    <span className="hidden sm:inline">Dashboard</span>
+              {/* Tab Navigation - Make it more prominent */}
+              <div className="border-b bg-card/50 backdrop-blur-sm px-4 py-3 flex-shrink-0">
+                <TabsList className="grid w-full max-w-md grid-cols-2 h-12">
+                  <TabsTrigger value="dashboard" className="flex items-center gap-2 text-base">
+                    <Home className="w-5 h-5" />
+                    <span>Islamic Features</span>
                   </TabsTrigger>
-                  <TabsTrigger value="chat" className="flex items-center gap-2">
-                    <MessageSquare className="w-4 h-4" />
-                    <span className="hidden sm:inline">AI Chat</span>
+                  <TabsTrigger value="chat" className="flex items-center gap-2 text-base">
+                    <MessageSquare className="w-5 h-5" />
+                    <span>AI Chat</span>
                   </TabsTrigger>
                 </TabsList>
+                
+                {/* Add a helpful description */}
+                <div className="mt-2 text-sm text-muted-foreground">
+                  {activeTab === 'dashboard' ? 
+                    "🕌 Access Prayer Times, Islamic Calendar, Daily Verses & More" : 
+                    "💬 Chat with your Islamic AI Assistant"
+                  }
+                </div>
               </div>
 
               {/* Tab Content */}
