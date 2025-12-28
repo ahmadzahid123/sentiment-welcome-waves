@@ -105,10 +105,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signUp = async (email: string, password: string, fullName: string) => {
     try {
-      const { error } = await supabase.auth.signUp({
+      const redirectUrl = `${window.location.origin}/`;
+      
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
+          emailRedirectTo: redirectUrl,
           data: {
             full_name: fullName,
           }
@@ -121,10 +124,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           description: error.message,
           variant: "destructive",
         });
+      } else if (data?.user?.identities?.length === 0) {
+        // User already exists
+        toast({
+          title: "Account Already Exists",
+          description: "This email is already registered. Please sign in instead.",
+          variant: "destructive",
+        });
+        return { error: new Error("User already exists") };
       } else {
         toast({
-          title: "Welcome to Islamic AI Assistant!",
-          description: "Please check your email to verify your account.",
+          title: "Account Created Successfully!",
+          description: "Welcome to Islamic AI Assistant. Signing you in...",
         });
       }
       
