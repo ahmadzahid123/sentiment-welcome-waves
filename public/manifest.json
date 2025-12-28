@@ -23,13 +23,5 @@
   ],
   "categories": ["education", "lifestyle", "social"],
   "lang": "en",
-  "dir": "ltr",
-  "screenshots": [
-    {
-      "src": "/placeholder.svg",
-      "sizes": "1280x720",
-      "type": "image/svg+xml",
-      "form_factor": "wide"
-    }
-  ]
+  "dir": "ltr"
 }
